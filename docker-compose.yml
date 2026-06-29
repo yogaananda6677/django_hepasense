@@ -1,0 +1,27 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: hepasense-postgres
+    environment:
+      POSTGRES_DB: hepasense
+      POSTGRES_USER: hepasense
+      POSTGRES_PASSWORD: hepasense123
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  web:
+    build: .
+    container_name: hepasense-api
+    env_file:
+    - .env
+    ports:
+      - "8080:8000"
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
