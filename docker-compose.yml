@@ -3,25 +3,36 @@ services:
     image: postgres:17-alpine
     container_name: hepasense-postgres
     environment:
-      POSTGRES_DB: hepasense
-      POSTGRES_USER: hepasense
-      POSTGRES_PASSWORD: hepasense123
+      POSTGRES_DB: ${POSTGRES_DB:-hepasense}
+      POSTGRES_USER: ${POSTGRES_USER:-hepasense}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hepasense123}
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hepasense}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   web:
     build: .
     container_name: hepasense-api
     env_file:
-    - .env
+      - .env
     ports:
       - "8080:8000"
     volumes:
       - .:/app
+      - /app/staticfiles  # Exclude from bind mount for performance
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py seed_articles &&
+             python manage.py runserver 0.0.0.0:8000"
 
 volumes:
   postgres_data:

@@ -1,22 +1,61 @@
 """
-URL configuration for config project.
+URL Configuration for HepaSense Backend.
 
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/6.0/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
+API endpoints follow RESTful conventions under /api/v1/
 """
+
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
+from rest_framework_simplejwt.views import TokenRefreshView
+from django.http import JsonResponse
+
+
+def health_check(request):
+    """Simple health check endpoint for Docker/Kubernetes probes."""
+    return JsonResponse({
+        'status': 'healthy',
+        'service': 'hepasense-backend',
+        'version': '0.1.0',
+    })
+
 
 urlpatterns = [
+    # Admin
     path('admin/', admin.site.urls),
+
+    # Health check
+    path('health/', health_check, name='health-check'),
+
+    # API v1
+    path('api/v1/', include([
+        # Authentication
+        path('auth/', include('apps.accounts.urls.auth_urls')),
+
+        # Accounts / Profile / 2FA
+        path('accounts/', include('apps.accounts.urls')),
+
+        # Health monitoring (NH3, suhu, kelembapan, dll)
+        path('health-monitor/', include('apps.health_monitor.urls')),
+
+        # Articles
+        path('articles/', include('apps.articles.urls')),
+
+        # Wearable Devices
+        path('devices/', include('apps.devices.urls')),
+    ])),
+
+    # JWT token refresh
+    path('api/v1/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]
+
+# Serve media files in development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+
+# Customize admin header
+admin.site.site_header = 'HepaSense Administration'
+admin.site.site_title = 'HepaSense Admin'
+admin.site.index_title = 'Welcome to HepaSense'
